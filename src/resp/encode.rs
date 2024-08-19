@@ -15,7 +15,7 @@
     - set: "~<number-of-elements>\r\n<element-1>...<element-n>"
  */
 
-use super::{
+use crate::{
     BulkString, RespArray, RespEncode, RespMap, RespNull, RespNullArray, RespNullBulkString,
     RespSet, SimpleError, SimpleString,
 };
@@ -117,7 +117,7 @@ impl RespEncode for RespMap {
         let mut buf = Vec::with_capacity(BUF_CAP);
         buf.extend_from_slice(format!("%{}\r\n", self.len()).as_bytes());
         for (key, value) in self.0 {
-            buf.extend_from_slice(&SimpleString(key).encode());
+            buf.extend_from_slice(&SimpleString::new(key).encode());
             buf.extend_from_slice(&value.encode());
         }
         buf
@@ -144,13 +144,13 @@ mod tests {
 
     #[test]
     fn test_simple_string_encode() {
-        let frame = SimpleString("OK".to_string());
+        let frame = SimpleString::new("OK".to_string());
         assert_eq!(frame.encode(), b"+OK\r\n");
     }
 
     #[test]
     fn test_simple_error_encode() {
-        let frame = SimpleError("Error message".to_string());
+        let frame = SimpleError::new("Error message".to_string());
         assert_eq!(frame.encode(), b"-Error message\r\n");
     }
 
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_bulk_string_encode() {
-        let frame = BulkString(b"hello".to_vec());
+        let frame = BulkString::new(b"hello".to_vec());
         assert_eq!(frame.encode(), b"$5\r\nhello\r\n");
     }
 
@@ -177,9 +177,9 @@ mod tests {
     #[test]
     fn test_array_encode() {
         let frame = RespArray(vec![
-            BulkString(b"set".to_vec()).into(),
-            BulkString(b"hello".to_vec()).into(),
-            BulkString(b"world".to_vec()).into(),
+            BulkString::new(b"set".to_vec()).into(),
+            BulkString::new(b"hello".to_vec()).into(),
+            BulkString::new(b"world".to_vec()).into(),
         ]);
         assert_eq!(
             frame.encode(),
@@ -222,7 +222,10 @@ mod tests {
     #[test]
     fn test_map_encode() {
         let mut map = RespMap::new();
-        map.insert("hello".to_string(), BulkString(b"world".to_vec()).into());
+        map.insert(
+            "hello".to_string(),
+            BulkString::new(b"world".to_vec()).into(),
+        );
         map.insert("foo".to_string(), (-123456.789).into());
         let frame: RespFrame = map.into();
         assert_eq!(
@@ -235,7 +238,7 @@ mod tests {
     fn test_set_encode() {
         let frame = RespSet(vec![
             RespArray::new([1234.into(), true.into()]).into(),
-            BulkString(b"world".to_vec()).into(),
+            BulkString::new(b"world".to_vec()).into(),
         ]);
         assert_eq!(
             frame.encode(),
