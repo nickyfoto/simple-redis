@@ -1,19 +1,41 @@
 mod decode;
 mod encode;
 
+use bytes::BytesMut;
 use enum_dispatch::enum_dispatch;
 use std::{
     collections::BTreeMap,
     ops::{Deref, DerefMut},
 };
+use thiserror::Error;
 
 #[enum_dispatch]
 pub trait RespEncode {
     fn encode(self) -> Vec<u8>;
 }
 
-pub trait RespDecode {
-    fn decode(buf: Self) -> Result<RespFrame, String>;
+pub trait RespDecode: Sized {
+    const PREFIX: &'static str;
+    fn decode(buf: &mut BytesMut) -> Result<Self, RespError>;
+    fn expect_length(buf: &[u8]) -> Result<usize, RespError>;
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RespError {
+    #[error("Invalid frame: {0}")]
+    InvalidFrame(String),
+    #[error("Invalid frame type: {0}")]
+    InvalidFrameType(String),
+    #[error("Invalid frame length: {0}")]
+    InvalidFrameLength(isize),
+    #[error("Frame is not complete")]
+    NotComplete,
+    #[error("Parse error: {0}")]
+    ParseError(#[from] std::num::ParseIntError),
+    #[error("UTF-8 error: {0}")]
+    Utf8Error(#[from] std::str::Utf8Error),
+    #[error("Parse float error: {0}")]
+    ParseFloatError(#[from] std::num::ParseFloatError),
 }
 
 #[enum_dispatch(RespEncode)]
@@ -51,6 +73,24 @@ pub struct RespNull;
 pub struct RespMap(BTreeMap<String, RespFrame>);
 #[derive(Debug, PartialEq, PartialOrd)]
 pub struct RespSet(Vec<RespFrame>);
+
+impl SimpleString {
+    pub fn new(s: impl Into<String>) -> Self {
+        SimpleString(s.into())
+    }
+}
+
+impl SimpleError {
+    pub fn new(s: impl Into<String>) -> Self {
+        SimpleError(s.into())
+    }
+}
+
+impl BulkString {
+    pub fn new(s: impl Into<Vec<u8>>) -> Self {
+        BulkString(s.into())
+    }
+}
 
 impl Deref for SimpleString {
     type Target = String;
@@ -105,5 +145,59 @@ impl Default for RespMap {
 impl RespArray {
     pub fn new(s: impl Into<Vec<RespFrame>>) -> Self {
         RespArray(s.into())
+    }
+}
+
+impl RespSet {
+    pub fn new(s: impl Into<Vec<RespFrame>>) -> Self {
+        RespSet(s.into())
+    }
+}
+
+impl From<&str> for SimpleString {
+    fn from(s: &str) -> Self {
+        SimpleString(s.to_string())
+    }
+}
+
+impl From<&str> for RespFrame {
+    fn from(s: &str) -> Self {
+        SimpleString(s.to_string()).into()
+    }
+}
+
+impl From<&str> for SimpleError {
+    fn from(s: &str) -> Self {
+        SimpleError(s.to_string())
+    }
+}
+
+impl From<&str> for BulkString {
+    fn from(s: &str) -> Self {
+        BulkString(s.as_bytes().to_vec())
+    }
+}
+
+impl From<&[u8]> for BulkString {
+    fn from(s: &[u8]) -> Self {
+        BulkString(s.to_vec())
+    }
+}
+
+impl From<&[u8]> for RespFrame {
+    fn from(s: &[u8]) -> Self {
+        BulkString(s.to_vec()).into()
+    }
+}
+
+impl<const N: usize> From<&[u8; N]> for BulkString {
+    fn from(s: &[u8; N]) -> Self {
+        BulkString(s.to_vec())
+    }
+}
+
+impl<const N: usize> From<&[u8; N]> for RespFrame {
+    fn from(s: &[u8; N]) -> Self {
+        BulkString(s.to_vec()).into()
     }
 }
