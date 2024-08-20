@@ -7,6 +7,7 @@ use thiserror::Error;
 
 use crate::{Backend, RespArray, RespError, RespFrame};
 
+// once_cell is also an option
 lazy_static! {
     pub static ref RESP_OK: RespFrame = RespFrame::SimpleString("OK".into());
 }
