@@ -86,6 +86,7 @@ impl RespDecode for RespFrame {
                 let frame = RespSet::decode(buf)?;
                 Ok(frame.into())
             }
+            None => Err(RespError::NotComplete),
             _ => Err(RespError::InvalidFrameType(format!(
                 "Invalid frame type: {:?}",
                 buf
